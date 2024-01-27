@@ -1,0 +1,200 @@
+#!/bin/bash
+set -e
+
+##******************************************************************************
+##  Copyright (c) 2024 Zipline International, Inc.  All rights reserved.
+#
+# "docker_dev": drops the user into a persistent Docker container specifically
+# for development.
+#===============================================================================
+
+# Ensure docker_fun is sourced.
+if [ ! -z ${REPO_PATH+x} ]; then
+    source ${REPO_PATH}/sim/utils/utils.sh
+else
+    printf "ERROR: path to repository root is not defined.\n"
+    printf "ERROR: please execute: source <repo root>/docker_fun.sh\n"
+    exit 1
+fi
+
+# This script should not be run within a docker container.
+check_not_in_dockerenv
+[ "$?" != "0" ] && exit 1
+
+### Define variables
+
+# Image/container variables.
+IMAGE="zipline/flight-systems-cuda"
+TAG="latest"
+BASE_IMAGE_TAG="${IMAGE}:${TAG}"
+USER_IMAGE_TAG="${BASE_IMAGE_TAG}-${USER}"
+CONTAINER_NAME="perception-dev"
+
+# Configure container with lenient default args for development. We really just want
+# filesystem isolation, so make everything privileged.
+docker_create_args=(
+    --privileged
+    --user $(id -u):$(id -g)
+    -e DISPLAY=${DISPLAY}
+    -e QT_X11_NO_MITSHM=1
+    -v ${HOME}/.cache:${HOME}/.cache
+    -v ${HOME}/data:${HOME}/data
+    -v /dev:/dev
+    -v /run:/run
+    -v /tmp/.X11-unix:/tmp/.X11-unix:rw
+    -v ${HOME}/.Xauthority:/root/.Xauthority:ro
+    -v ${REPO_PATH}:${REPO_PATH}
+    -it
+    --device /dev/dri
+    --workdir ${REPO_PATH}
+    --network host
+    --entrypoint /bin/bash
+    --runtime=nvidia
+)
+
+
+### Helper functions
+
+# Dump usage information and exit.
+function usage() {
+    echo "
+Usage: docker_dev [options]
+
+Start bash shell in a specified Docker image.
+
+Options:
+  down                              Kill the running container.
+  delete                            Delete the running container and user image
+"
+    exit 0
+}
+
+# Check for nvidia container runtime.
+function _maybe_install_nvidia_runtime() {
+    if [[ ! $(type -P nvidia-container-runtime) ]]; then
+        print_warning "Nvidia runtime container not found."
+        read -e -p " Install and configure? [Y/n]: " REPLY
+
+        if [[ ${REPLY} == [Nn]*   ]]; then
+            print_error "Configuration failed."
+            exit 2
+        fi
+
+        # Configure repository
+        curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | \
+            sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg && \
+        curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
+            sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
+            sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list > /dev/null
+        # Install
+        sudo apt update
+        sudo apt install -y nvidia-container-runtime
+
+        # Configurate docker daemon.
+        sudo tee /etc/docker/daemon.json > /dev/null <<EOF
+{
+    "runtimes": {
+        "nvidia": {
+            "path": "/usr/bin/nvidia-container-runtime",
+            "runtimeArgs": []
+        }
+    }
+}
+EOF
+
+        # Restart docker service.
+        sudo systemctl reload docker.service
+
+        print_info "Nvidia runtime configured."
+    fi
+}
+
+# If we don't have the user image, build it here.
+function _maybe_build_user_image() {
+    # If the imagge doesn't exist...
+    if [[ "$(docker images -q ${USER_IMAGE_TAG} 2> /dev/null)" == "" ]]; then
+        # This introduces new layers on top of the base image provided by CI and
+        # bakes in the user and group. We can also add layers for more dev tooling
+        # here, though some of these can be split out into git-ignored dockerfile
+        # for per-dev customization.
+        print_info "User dev image not found. Building now."
+        docker build -t ${USER_IMAGE_TAG} -<<EOF
+FROM ${BASE_IMAGE_TAG}
+
+# Bake user and group ID into the image.
+RUN groupadd --gid $(id --group) ${USER} && \
+    useradd -l --uid ${UID} --gid $(id --group) -m ${USER}
+
+RUN echo "$USER ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# Install additional drivers.
+RUN apt update && apt install -y \
+    mesa-utils \
+    libgl1-mesa-glx \
+    libxcursor-dev \
+    libxrandr-dev \
+    libxi-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install common development tools.
+RUN apt update && apt install -y \
+    vim \
+    && rm -rf /var/lib/apt/lists/*
+EOF
+        fi
+}
+
+function _maybe_create_dev_container() {
+    # If we don't have a container running named ${CONTAINER_NAME}, lets create it.
+    if [[ "$(docker ps -a -q -f name=${CONTAINER_NAME} 2> /dev/null)" == "" ]]; then
+        print_info "No container found. Creating."
+        docker create ${docker_create_args[@]} -it --name ${CONTAINER_NAME} ${USER_IMAGE_TAG} > /dev/null
+    fi
+}
+
+# Default options.
+
+DOWN=false
+DELETE=false
+
+# Parse user input.
+while (($# > 0)); do
+    case $1 in
+         -h | --help)
+            usage
+            ;;
+         down)
+            # User just wants to kill the current container.
+            DOWN=true
+            ;;
+         delete)
+            # User wants to delete the container, which means we should also bring
+            # it down.
+            DOWN=true
+            DELETE=true
+            ;;
+        *) print_error "Unrecognized argument: ${1}"
+            usage
+            ;;
+    esac
+    shift
+done
+
+
+if [[ "${DOWN}" == "true" ]]; then
+    print_info "Killing development container."
+    docker stop ${CONTAINER_NAME} 2> /dev/null || true
+    if [[ "${DELETE}" == "true" ]]; then
+        print_info "Removing development container."
+        docker rm ${CONTAINER_NAME} 2> /dev/null || true
+        print_info "Removing user image."
+        docker image rm ${USER_IMAGE_TAG}
+    fi
+else
+    # User just wants to attach to a container (that may or may not be created yet)
+    # and do their thing.
+    _maybe_build_user_image
+    _maybe_create_dev_container
+    docker start ${CONTAINER_NAME}
+    docker exec -it ${CONTAINER_NAME} /bin/bash
+fi
