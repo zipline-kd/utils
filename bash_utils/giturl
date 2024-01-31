@@ -1,0 +1,80 @@
+#!/bin/bash
+set -e
+
+#******************************************************************************
+#  Copyright (c) 2024 Zipline International, Inc.  All rights reserved.
+#
+# giturl takes a path to a local file and attempts to print out a shareable
+# browser link.
+#===============================================================================
+
+function _git_parse_url {
+  local remote_url=$1
+  local branch=$2
+  local rel_url=$3
+  local filename=$4
+
+  if (echo "$remote_url" | grep -q "github"); then
+    # Change .../<repo>.git to .../<repo>/tree
+    remote_url=$(echo "$remote_url" | sed "s|\.git|/tree|g")
+    # Change git@github.com: to https://github.com/
+    remote_url=$(echo "$remote_url" | sed "s|git@github.com:|https://github.com/|g")
+    echo "$remote_url/$branch/$rel_url$filename"
+  else
+    # Best guess ¯\_(ツ)_/¯
+    echo "$remote_url$rel_url$filename"
+  fi
+}
+
+target="."
+use_branch=false
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+  arg="$1"
+  case $arg in
+    --branch | -b)
+      use_branch=true
+      shift
+      ;;
+    *)
+      target=$arg
+      shift
+      ;;
+  esac
+done
+
+# Expand the target to an absolute path.
+full_path=$(realpath "$target")
+
+if [ -f "${full_path}" ]; then
+  dir_path=$(dirname "$full_path")
+  filename=$(basename "$full_path")
+elif [ -d "${full_path}" ]; then
+  dir_path="${full_path}"
+fi
+
+url_found=false
+
+# Pushd to the target's directory so we can grab repo information.
+pushd "$dir_path" >> /dev/null
+  remote_url=$(git config --get remote.origin.url)
+  if [ -n "${remote_url}" ]; then
+    url_found=true
+    rel_url=$(git rev-parse --show-prefix)
+    branch=$(git rev-parse --abbrev-ref HEAD)
+    default_branch=$(git remote show origin | grep 'HEAD branch' | cut -d' ' -f5)
+  fi
+popd >> /dev/null
+
+if [[ $url_found == "false" ]]; then
+  echo "Failed to find git repository."
+  return 1
+fi
+
+if [[ $use_branch == "false" ]]; then
+  branch="$default_branch"
+fi
+
+# Concatenate everything.
+_git_parse_url "$remote_url" "$branch" "$rel_url" "$filename"
