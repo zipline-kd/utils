@@ -1,0 +1,35 @@
+# Dockerfile defining a common layer on top of the base image to reduce some
+# friction and add missing graphics libraries.
+
+ARG BASE_IMAGE
+
+FROM $BASE_IMAGE
+
+ARG USER
+ARG UID
+ARG GID
+
+# Colorize the prompt.
+ENV TERM xterm-256color
+
+# Bake user and group ID into the image.
+RUN groupadd --gid $GID $USER && \
+    useradd -l --uid $UID --gid $GID -m $USER
+
+# Modify the prompt so the user knows when they're in a container.
+RUN echo "docker-dev" > /etc/debian_chroot
+
+# Require no password for sudo access.
+# This exposes a big security threat: when a user is added to the docker group,
+# anyone with access to the machine can get root access to the filesystem through
+# docker!
+RUN echo "$USER ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# Install additional graphics libraries.
+RUN apt update && apt install -y \
+    mesa-utils \
+    libgl1-mesa-glx \
+    libxcursor-dev \
+    libxrandr-dev \
+    libxi-dev \
+    && rm -rf /var/lib/apt/lists/*

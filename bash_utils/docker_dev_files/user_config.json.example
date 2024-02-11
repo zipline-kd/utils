@@ -1,0 +1,13 @@
+{
+    "mounts": {
+        "${HOME}/.bashrc": "${HOME}/.bashrc:ro",
+        "${HOME}/data": "${HOME}/data"
+    },
+    "env_vars": {
+        "RUST_BACKTRACE": "1"
+    },
+    "devices": [
+    ],
+    "additional_flags": [
+    ]
+}

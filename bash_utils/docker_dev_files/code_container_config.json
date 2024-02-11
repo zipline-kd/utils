@@ -1,0 +1,10 @@
+{
+    "workspaceFolder": "WORKSPACE_FOLDER",
+    "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash"
+    },
+    "extensions": [
+        "rust-lang.rust-analyzer",
+        "vadimcn.vscode-lldb"
+    ]
+}

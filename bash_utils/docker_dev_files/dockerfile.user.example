@@ -1,0 +1,12 @@
+# Example git-ignored dockerfile to build on top of the default user image.
+# Copy this to dockerfile.user and modify as desired.
+
+ARG BASE_IMAGE
+
+FROM $BASE_IMAGE
+
+# Install common development tools.
+RUN apt update && apt install -y \
+    vim \
+    tmux \
+    && rm -rf /var/lib/apt/lists/*
