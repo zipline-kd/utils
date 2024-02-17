@@ -1,4 +1,5 @@
 {
+    "no_cuda": "false",
     "mounts": {
         "${HOME}/.bashrc": "${HOME}/.bashrc:ro",
         "${HOME}/data": "${HOME}/data"

@@ -34,6 +34,7 @@ set -e
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 FILES_DIR="${SCRIPT_DIR}"/docker_dev_files
+CONFIG_FILE="${FILES_DIR}"/user_config.json
 
 
 ############ Sanity check environment ############
@@ -64,7 +65,7 @@ docker_create_common_flags=(
     --privileged
     --user "$(id -u):$(id -g)"
     --workdir "${REPO_PATH}"
-    --network host
+    --network=host
     -it
     --entrypoint /bin/bash
 )
@@ -77,6 +78,7 @@ docker_create_common_mounts=(
     -v "${REPO_PATH}":"${REPO_PATH}"
     -v /dev:/dev
     -v /run:/run
+    -v /var/run/docker.sock:/var/run/docker.sock
     -v /tmp/.X11-unix:/tmp/.X11-unix:rw
 )
 
@@ -117,9 +119,24 @@ function maybe_apt_install() {
     done
 }
 
+# Check if the user wants to disable the cuda image.
+function disable_cuda() {
+    if [ -f "$CONFIG_FILE" ]; then
+        jq -e '.no_cuda == "true"' < "${CONFIG_FILE}" > /dev/null
+    else
+        return 1
+    fi
+}
+
+# Check if the user wants to use the cuda image regardless of whether or not
+# the nvidia runtime is used.
+function with_cuda_image() {
+    with_nvidia && ! disable_cuda
+}
+
 # Get the base image tag.
 function base_image_tag() {
-    if with_nvidia; then
+    if with_cuda_image; then
         echo "zipline/flight-systems-cuda:latest"
     else
         echo "zipline/flight-systems-build:latest"
@@ -128,7 +145,7 @@ function base_image_tag() {
 
 # Get the container name.
 function container_name() {
-    if with_nvidia; then
+    if with_cuda_image; then
         echo "perception-cuda-dev"
     else
         echo "perception-dev"
@@ -204,7 +221,7 @@ function configure_nvidia() {
 
 # Pull the base image that we'll build on top of.
 function pull_base_image() {
-    if with_nvidia; then
+    if with_cuda_image; then
         docker_pull -c
     else
         docker_pull
@@ -215,7 +232,7 @@ function pull_base_image() {
 function maybe_build_user_image() {
 
     if [[ $(docker images -q "$(base_image_tag)" 2> /dev/null) == "" ]]; then
-        print_info "Base image not found in local repository. Pulling now."
+        print_info "Base image $(base_image_tag) not found in local repository. Pulling now."
         pull_base_image
     fi
 
@@ -255,24 +272,13 @@ function maybe_build_user_image() {
     fi
 }
 
-# Parse the user config file, if found.
-function parse_user_config () {
-    if [ -f "$FILES_DIR"/user_config.json ]; then
-        print_info "Loading user-specified docker arguments."
-    fi
-}
-
 # Create the container if needed.
 function maybe_create_dev_container() {
     # If we can't find a running container...
     if [[ $(docker ps -a -q -f name="$(container_name)" 2> /dev/null) == "" ]]; then
         # Allow a user to specify additional arguments through the user_config.json file,
         # if it exists.
-        CONFIG_FILE="$FILES_DIR"/user_config.json
-
         if [ -f "$CONFIG_FILE" ]; then
-            maybe_apt_install jq
-
             print_info "Loading user-specified docker arguments."
 
             docker_create_user_mounts=$(
@@ -355,6 +361,7 @@ function configure_vs_code() {
     install_vs_code_extensions ms-vscode-remote.remote-containers
     write_vs_code_container_config
 }
+
 
 ############ Install missing dependencies ############
 maybe_apt_install jq
