@@ -74,3 +74,39 @@ You should now be able to run VS Code, hit F1, and select `Dev Containers: Attac
 This will install the necessary extensions into your container and allow you to work in the containerized environment.
 
 See [Full VSCode debug setup](https://flyzipline.atlassian.net/wiki/spaces/~712020aea05969e33d4dec8189900a4134040b/pages/3295412270/Full+VSCode+debug+setup+in+Docker) for very detailed instructions on setting up VS Code for containerized development.
+
+
+### Help! I want to...
+
+#### run with a non-cuda image on my Nvidia system:
+
+Add `no_cuda: "true"` to _docker_dev_files/user_config.json_.
+Run `docker_dev delete` for changes to take effect on the next instantiation of your dev container.
+
+Note that OpenGL applications won't work with the base _debian:slim_ without some modifications to the container.
+
+
+#### share my bazel cache with my container:
+Mount your host cache into the container in _docker_dev_files/user_config.json_:
+
+```json
+{
+    ...
+    "mounts": {
+        ...
+        "${HOME}/.cache/bazel": "${HOME}/.cache/bazel",
+        ...
+    },
+    ...
+```
+Run `docker_dev delete` for changes to take effect on the next instantiation of your dev container.
+
+
+#### install an apt package in my container:
+If this is a temporary dependency, just `$ apt update && apt install <package>`.
+
+If you want this package to exist in all future containers on your system, copy _docker_dev_files/dockerfile.user.example_ to _docker_dev_files/dockerfile.user_, add any arbitrary install commands you want, and remove any unnecessary commands.
+
+If you want this package to exist for all users of `docker_dev`, modify _docker_dev_files/dockerfile.base_ and commit to the repository.
+
+Run `docker_dev delete` for changes to take effect on the next instantiation of your dev container.
