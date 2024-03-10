@@ -41,3 +41,12 @@ RUN apt update && apt install -y \
     bash-completion \
     shellcheck && \
     rm -rf /var/lib/apt/lists/*
+
+# Docker-in-docker for pre-commit things.
+COPY docker_install.sh /docker_install.sh
+RUN /docker_install.sh
+
+# Some ugly workarounds to get vendor_rust to work.
+RUN ln -s /usr/local/cargo $HOME/.cargo && \
+    rm -rf /usr/local/cargo/registry && \
+    chown -R $USER:$USER /usr/local/cargo/

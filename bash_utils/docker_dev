@@ -62,7 +62,6 @@ fi
 # machine, see user_config.json.example.
 
 docker_create_common_flags=(
-    --privileged
     --user "$(id -u):$(id -g)"
     --workdir "${REPO_PATH}"
     --network=host
@@ -74,11 +73,11 @@ docker_create_common_mounts=(
     -v "${HOME}"/.cache:"${HOME}"/.cache
     -v "${HOME}"/.aws:"${HOME}"/.aws
     -v "${HOME}"/.ssh:"${HOME}"/.ssh
-    -v "${HOME}"/.Xauthority:/root/.Xauthority:ro
+    -v "${HOME}"/.Xauthority:/root/.Xauthority:rw
     -v "${REPO_PATH}":"${REPO_PATH}"
     -v /dev:/dev
     -v /run:/run
-    -v /var/run/docker.sock:/var/run/docker.sock
+    -v /var/run/docker.sock:/var/run/docker.sock:rw
     -v /tmp/.X11-unix:/tmp/.X11-unix:rw
 )
 
@@ -89,6 +88,7 @@ docker_create_common_devices=(
 docker_create_common_env_vars=(
     -e QT_X11_NO_MITSHM=1
     -e DISPLAY="${DISPLAY}"
+    -e CARGO_HOME="${HOME}/.cargo"
 )
 
 ############ Helper functions ############
@@ -261,6 +261,8 @@ function maybe_build_user_image() {
             # Now build the user layer.
             docker build \
                 --build-arg BASE_IMAGE="$(user_image_tag)"-base \
+                --build-arg USER="${USER}" \
+                --build-arg HOME="${HOME}" \
                 -t "$(user_image_tag)" \
                 -f "${FILES_DIR}/dockerfile.user" \
                 "${FILES_DIR}"
@@ -314,6 +316,12 @@ function maybe_create_dev_container() {
     fi
 }
 
+# Miscellany for getting the host ready for our dev environment.
+function miscellaneous_host_setup() {
+    # Install script dependencies.
+    maybe_apt_install jq
+}
+
 # Start the container.
 function start_container() {
     # Start the container. No-op if already started.
@@ -363,8 +371,9 @@ function configure_vs_code() {
 }
 
 
-############ Install missing dependencies ############
-maybe_apt_install jq
+############ Host setup ############
+
+miscellaneous_host_setup
 
 
 ############ Parsing and execution ############
