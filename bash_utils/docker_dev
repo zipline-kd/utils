@@ -62,6 +62,7 @@ fi
 # machine, see user_config.json.example.
 
 docker_create_common_flags=(
+    --privileged
     --user "$(id -u):$(id -g)"
     --workdir "${REPO_PATH}"
     --network=host
@@ -246,6 +247,7 @@ function maybe_build_user_image() {
             --build-arg USER="${USER}" \
             --build-arg UID="${UID}" \
             --build-arg GID="$(id --group)" \
+            --build-arg HOME="${HOME}" \
             -t "$(user_image_tag)" \
             -f "${FILES_DIR}/dockerfile.base" \
             "${FILES_DIR}"
