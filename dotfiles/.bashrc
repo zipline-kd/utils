@@ -115,14 +115,23 @@ if ! shopt -oq posix; then
     . /etc/bash_completion
   fi
 fi
+
+# flight-systems docker functions
+source "$HOME/github/FlightSystems/docker_fun.sh"
+
+# source cargo environment
 . "$HOME/.cargo/env"
 
 # pip binaries live here
 export PATH="$HOME/.local/bin:$PATH"
 
+# nvim lives here
+export PATH="$PATH:/opt/nvim-linux64/bin"
+
 # shorthands
 alias gitpff='git pull --ff-only'
 alias vim='nvim'
+
 
 # atuin without up-arrow
 [[ -f ~/.bash-preexec.sh ]] && source ~/.bash-preexec.sh

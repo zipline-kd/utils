@@ -48,7 +48,7 @@ else
 fi
 
 # This script should not be run within a docker container.
-if ! check_not_in_dockerenv; then
+if [ -e "/proc/1/sched" ] && cat /proc/1/sched | head -n 1 | \grep -q "bash"; then
     exit 1
 fi
 
@@ -259,8 +259,10 @@ function maybe_build_user_image() {
             docker tag "$(user_image_tag)" "$(user_image_tag)"-base
 
             # Now build the user layer.
+            zipline_pip_url=$(grep -Po "(?<=index-url = ).+(?=$)" "$HOME/.pip/pip.conf")
             docker build \
                 --build-arg BASE_IMAGE="$(user_image_tag)"-base \
+                --build-arg ZIPLINE_PIP_URL="$zipline_pip_url" \
                 -t "$(user_image_tag)" \
                 -f "${FILES_DIR}/dockerfile.user" \
                 "${FILES_DIR}"
@@ -322,7 +324,7 @@ function start_container() {
 
 # Execute an interactive bash process within the container.
 function enter_container () {
-    docker exec -it "$(container_name)" /bin/bash
+    docker exec -it "$(container_name)" "$SHELL"
 }
 
 # Install VS code extensions, if missing.
