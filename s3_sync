@@ -1,0 +1,82 @@
+#! /usr/bin/python
+
+import os
+import re
+import sys
+import argparse
+import subprocess
+
+def local_uri(root, asset_id, dt, logs_id):
+    return os.path.join(os.path.expanduser('~'), 'data', root, asset_id, dt, logs_id)
+
+
+def s3_dir_uri(root, asset_id, dt):
+    return 's3://zipline-core-data-us-west-2-149938346436-production/{}/asset_id={}/dt={}/'.format(
+        root,
+        asset_id,
+        dt,
+    )
+
+
+def s3_log_uri(root, asset_id, dt, logs_id):
+    return 's3://zipline-core-data-us-west-2-149938346436-production/{}/asset_id={}/dt={}/logs_id={}/'.format(
+        root,
+        asset_id,
+        dt,
+        logs_id,
+    )
+    
+
+def s3_full_log_id(root, asset_id, dt, logs_id_prefix):
+    dir = s3_dir_uri(root, asset_id, dt)
+    result = subprocess.run(['aws', 's3', 'ls', dir], capture_output=True)
+    if result.returncode != 0:
+        print("missing s3 credentials? cannot access {}".format(dir))
+        sys.exit(result.returncode)
+    
+    for line in result.stdout.decode('utf8').splitlines():
+        m = re.search('PRE logs_id=(.*)/', line)
+        if m is not None and m.group(1).startswith(logs_id_prefix):
+            return m.group(1) 
+
+    print("no logs matching {}".format(logs_id_prefix))
+    sys.exit(1)
+
+
+def s3_sync_log(root, asset_id, dt, logs_id, zml_only=True):
+    dst = local_uri(root, asset_id, dt, logs_id)
+    log = s3_log_uri(root, asset_id, dt, logs_id)
+    cmd = ['aws', 's3', 'sync']
+    if zml_only:
+        cmd += ['--exclude', '*', '--include', '*.zst']
+    cmd.append(log)
+    cmd.append(dst)
+    result = subprocess.run(cmd, capture_output=True)
+    if result.returncode != 0:
+        print("cannot access {}".format(log))
+        sys.exit(result.returncode)
+    
+
+def zml_flatten(root, asset_id, dt, logs_id):
+    dst = local_uri(root, asset_id, dt, logs_id)
+    raw = os.path.join(dst, 'raw', 'droid.zml.0.zst')
+    flat = os.path.join(dst, 'raw', 'flattened.zml')
+    subprocess.run(['zml', '-z', raw, 'flatten', '--fix', '-o', flat], capture_output=True)
+    print("flattened ZML: {}".format(flat))
+    
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(
+        prog='s3_sync',
+        description='sync vehicle log files from s3 to ~/data'
+    )
+    
+    parser.add_argument('-r', '--root', required=True, help='the root log folder in s3, e.g. droid_logs')
+    parser.add_argument('-a', '--asset_id', required=True, help='the asset_id= field, e.g. proto_droid_16')
+    parser.add_argument('-d', '--dt', required=True, help='the dt= field, e.g. 2024-03-26')
+    parser.add_argument('-l', '--logs_id', required=True, help='the logs_id= field, any uniquely identifying prefix of the full uuid will suffice, e.g. b2ac')
+    args = parser.parse_args()
+
+    full_log_id = s3_full_log_id(args.root, args.asset_id, args.dt, args.logs_id)
+    s3_sync_log(args.root, args.asset_id, args.dt, full_log_id)
+    zml_flatten(args.root, args.asset_id, args.dt, full_log_id)
