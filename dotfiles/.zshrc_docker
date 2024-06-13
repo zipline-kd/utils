@@ -119,7 +119,7 @@ alias gitpff='git pull --ff-only'
 alias vim='nvim'
 
 # flight-systems docker functions
-source "$HOME/github/FlightSystems/docker_fun.sh"
+source "$HOME/github/FlightSystems/docker_setup.sh"
 
 # atuin
 eval "$(atuin init zsh --disable-up-arrow)"

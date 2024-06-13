@@ -52,7 +52,7 @@ zstyle ':omz:update' frequency 13
 # Uncomment the following line if you want to disable marking untracked files
 # under VCS as dirty. This makes repository status check for large repositories
 # much, much faster.
-# DISABLE_UNTRACKED_FILES_DIRTY="true"
+DISABLE_UNTRACKED_FILES_DIRTY="true"
 
 # Uncomment the following line if you want to change the command execution time
 # stamp shown in the history command output.
@@ -115,7 +115,7 @@ alias gitpff='git pull --ff-only'
 alias vim='nvim'
 
 # flight-systems docker functions
-source "$HOME/github/FlightSystems/docker_fun.sh"
+source "$HOME/github/FlightSystems/docker_setup.sh"
 
 # atuin
 eval "$(atuin init zsh --disable-up-arrow)"
