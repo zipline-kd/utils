@@ -133,7 +133,7 @@ alias gitpff='git pull --ff-only'
 alias vim='nvim'
 
 
-# atuin without up-arrow
+atuin without up-arrow
 [[ -f ~/.bash-preexec.sh ]] && source ~/.bash-preexec.sh
 eval "$(atuin init bash --disable-up-arrow)"
 

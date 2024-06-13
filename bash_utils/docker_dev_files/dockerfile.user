@@ -1,0 +1,32 @@
+# Example git-ignored dockerfile to build on top of the default user image.
+# Copy this to dockerfile.user and modify as desired.
+
+ARG BASE_IMAGE
+
+FROM $BASE_IMAGE
+
+ARG ZIPLINE_PIP_URL
+
+# Install common development tools.
+RUN apt update && apt install -y \
+    vim \
+    zsh \
+    tmux \
+    curl \
+    ripgrep \
+    gh \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install oh-my-zsh.
+RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+
+# Install atuin.
+RUN cargo install atuin --version "=18.2"
+
+# Install neovim.
+RUN curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux64.tar.gz && \
+    rm -rf /opt/nvim && \
+    tar -C /opt -xzf nvim-linux64.tar.gz
+
+# Install zipline python packages.
+RUN pip install --extra-index-url="$ZIPLINE_PIP_URL" zipline-zmd zipline-zml zipline-zip-ipc
