@@ -43,7 +43,7 @@ def s3_full_log_id(root, asset_id, dt, logs_id_prefix):
     sys.exit(1)
 
 
-def s3_sync_log(root, asset_id, dt, logs_id, zml_only=True):
+def s3_sync_log(root, asset_id, dt, logs_id, zml_only=False):
     dst = local_uri(root, asset_id, dt, logs_id)
     log = s3_log_uri(root, asset_id, dt, logs_id)
     cmd = ['aws', 's3', 'sync']

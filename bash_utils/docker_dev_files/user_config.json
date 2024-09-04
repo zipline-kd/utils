@@ -12,7 +12,7 @@
         "${HOME}/github/utils/dotfiles/.zprofile": "${HOME}/.zprofile:ro",
         "${HOME}/github/utils/dotfiles/.profile": "${HOME}/.profile:ro",
         "${HOME}/github/utils/dotfiles/.bashrc": "${HOME}/.bashrc:ro",
- 	    "${HOME}/data": "${HOME}/data"
+ 	"${HOME}/data": "${HOME}/data"
     },
     "env_vars": {
         "RUST_BACKTRACE": "1",
