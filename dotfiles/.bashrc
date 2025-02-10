@@ -126,7 +126,7 @@ source "$HOME/github/FlightSystems/docker_setup.sh"
 export PATH="$HOME/.local/bin:$PATH"
 
 # nvim lives here
-export PATH="$PATH:/opt/nvim-linux64/bin"
+export PATH="$PATH:/opt/nvim-linux_x86_64/bin"
 
 # shorthands
 alias gitpff='git pull --ff-only'

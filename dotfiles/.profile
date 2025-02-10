@@ -27,4 +27,4 @@ export PATH="$HOME/.local/bin:$PATH"
 export PIP_CONFIG_FILE="$HOME/.pip/pip.conf"
 
 # nvim lives here
-export PATH="$PATH:/opt/nvim-linux64/bin"
+export PATH="$PATH:/opt/nvim-linux_x86_64/bin"
