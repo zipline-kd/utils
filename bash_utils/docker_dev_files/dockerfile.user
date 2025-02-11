@@ -5,6 +5,8 @@ ARG BASE_IMAGE
 
 FROM $BASE_IMAGE
 
+ARG USER
+ARG HOME
 ARG ZIPLINE_PIP_URL
 
 # Install common development tools.
@@ -28,7 +30,10 @@ RUN curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linu
 # Install zipline python packages.
 RUN pip install --extra-index-url="$ZIPLINE_PIP_URL" zipline-zmd zipline-zml zipline-zip-ipc
 
+# Link /Systems/bazel-bin -> FlightSystems/bazel-bin so that absolute paths can work as in `docker_bash`.
+RUN ln -s "$HOME/github/FlightSystems/bazel-bin" /Systems/bazel-bin
+
 # Install atuin.
-USER kevin.dade
+USER "$USER"
 RUN cargo install atuin
 
